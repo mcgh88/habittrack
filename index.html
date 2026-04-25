@@ -272,18 +272,6 @@ canvas { width: 100%; height: 250px; display: block; }
   box-shadow: 0 0 0 2px var(--yellow);
 }
 
-.cal-stats {
-  background: var(--surface); border-radius: var(--radius);
-  padding: 14px 16px; display: grid; grid-template-columns: repeat(3, 1fr);
-  gap: 8px; text-align: center;
-}
-.cal-stat-value {
-  font-family: var(--mono); font-size: 20px; font-weight: 700;
-}
-.cal-stat-label {
-  font-size: 11px; color: var(--text-dim); margin-top: 2px;
-}
-
 .toast {
   position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
   background: var(--surface2); color: var(--text); padding: 10px 20px;
@@ -387,7 +375,6 @@ input[type="date"] { -webkit-appearance: none; }
     <button id="cal-next-month">&rarr;</button>
   </div>
   <div class="cal-grid" id="cal-grid"></div>
-  <div class="cal-stats" id="cal-stats"></div>
 </div>
 
 <!-- SETTINGS PANEL -->
@@ -966,20 +953,20 @@ function renderCalGrid() {
   const rangeStart = store.settings.startDate;
   const rangeEnd = getEndDate();
 
-  // Stats accumulators
-  let submitted = 0, goodDays = 0, totalScore = 0;
+  // Always render 42 cells (6 rows) for consistent sizing
+  const totalCells = 42;
 
-  // Empty cells before first day
-  for (let i = 0; i < firstDay; i++) {
+  for (let i = 0; i < totalCells; i++) {
+    const day = i - firstDay + 1;
     const cell = document.createElement('div');
-    cell.className = 'cal-cell empty';
-    grid.appendChild(cell);
-  }
 
-  for (let day = 1; day <= daysInMonth; day++) {
+    if (i < firstDay || day > daysInMonth) {
+      cell.className = 'cal-cell empty';
+      grid.appendChild(cell);
+      continue;
+    }
+
     const dateStr = `${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-    const cell = document.createElement('div');
-
     const inRange = dateStr >= rangeStart && dateStr <= rangeEnd;
     const isFuture = dateStr > today;
     const isToday = dateStr === today;
@@ -1001,9 +988,6 @@ function renderCalGrid() {
       cell.className = 'cal-cell scored';
       cell.style.background = bgColor;
       cell.innerHTML = `<span>${day}</span><span class="cal-score">${Math.round(score)}%</span>`;
-      submitted++;
-      totalScore += score;
-      if (colorCat === 'good') goodDays++;
     } else {
       cell.className = 'cal-cell no-data';
       cell.textContent = day;
@@ -1012,24 +996,6 @@ function renderCalGrid() {
     if (isToday) cell.classList.add('today-ring');
     grid.appendChild(cell);
   }
-
-  // Stats
-  const statsEl = document.getElementById('cal-stats');
-  const avg = submitted > 0 ? Math.round(totalScore / submitted) : 0;
-  statsEl.innerHTML = `
-    <div>
-      <div class="cal-stat-value">${submitted}</div>
-      <div class="cal-stat-label">days logged</div>
-    </div>
-    <div>
-      <div class="cal-stat-value" style="color:var(--green)">${goodDays}</div>
-      <div class="cal-stat-label">good days</div>
-    </div>
-    <div>
-      <div class="cal-stat-value" style="color:${avg > 0 ? getScoreCSSColor(avg) : 'var(--text-dim)'}">${submitted > 0 ? avg + '%' : '—'}</div>
-      <div class="cal-stat-label">avg score</div>
-    </div>
-  `;
 }
 
 document.getElementById('cal-prev-month').addEventListener('click', () => {

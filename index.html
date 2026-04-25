@@ -246,17 +246,19 @@ canvas { width: 100%; height: 250px; display: block; }
   color: var(--text-faint); padding: 4px 0; font-weight: 600;
 }
 .cal-cell {
-  aspect-ratio: 1; border-radius: 8px; display: flex;
+  height: 44px; max-height: 44px; overflow: hidden;
+  border-radius: 8px; display: flex;
   flex-direction: column; align-items: center; justify-content: center;
   font-family: var(--mono); font-size: 13px; font-weight: 600;
-  position: relative; cursor: default; transition: transform 0.1s;
+  position: relative; cursor: default;
 }
 .cal-cell.empty { background: none; }
 .cal-cell.out-of-range {
   background: none; color: var(--text-faint); opacity: 0.3;
 }
-.cal-cell.no-data {
-  background: var(--surface); color: var(--text-dim);
+.cal-cell.missed {
+  background: none; color: var(--text-dim);
+  border: 1px solid rgba(255,255,255,0.06);
 }
 .cal-cell.future {
   background: rgba(255,255,255,0.02); color: var(--text-faint);
@@ -268,9 +270,7 @@ canvas { width: 100%; height: 250px; display: block; }
 .cal-cell.scored .cal-score {
   font-size: 9px; font-weight: 400; opacity: 0.85; margin-top: 1px;
 }
-.cal-cell.today-ring {
-  box-shadow: 0 0 0 2px var(--yellow);
-}
+
 
 .toast {
   position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
@@ -976,9 +976,6 @@ function renderCalGrid() {
     if (!inRange) {
       cell.className = 'cal-cell out-of-range';
       cell.textContent = day;
-    } else if (isFuture) {
-      cell.className = 'cal-cell future';
-      cell.textContent = day;
     } else if (isSubmitted) {
       const score = dayData.score;
       const colorCat = getScoreColor(score);
@@ -988,12 +985,15 @@ function renderCalGrid() {
       cell.className = 'cal-cell scored';
       cell.style.background = bgColor;
       cell.innerHTML = `<span>${day}</span><span class="cal-score">${Math.round(score)}%</span>`;
+    } else if (isFuture || isToday) {
+      cell.className = 'cal-cell future';
+      cell.textContent = day;
     } else {
-      cell.className = 'cal-cell no-data';
+      // Past day in range, not submitted — missed day
+      cell.className = 'cal-cell missed';
       cell.textContent = day;
     }
 
-    if (isToday) cell.classList.add('today-ring');
     grid.appendChild(cell);
   }
 }

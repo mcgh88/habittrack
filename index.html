@@ -453,7 +453,7 @@ input[type="date"] { -webkit-appearance: none; }
     <div class="panel-header">Habits</div>
     <div id="habits-edit-list"></div>
     <div style="display:flex;flex-direction:column;gap:12px;margin-top:16px;">
-      <button class="btn btn-outline btn-block btn-sm" id="add-habit-btn">Add Habit Blank</button>
+      <button class="btn btn-green btn-block btn-sm" id="add-habit-btn">+ Add Habit</button>
       <button class="btn btn-green btn-block" id="save-habits-btn">Save Changes</button>
     </div>
     <div id="habits-save-msg" style="text-align:center;padding:8px;font-size:12px;color:var(--text-dim);font-family:var(--mono);"></div>
@@ -978,7 +978,7 @@ function renderHabitsEditList(){
     handle.addEventListener('touchstart',handleDragStart,{passive:false});
   });
 
-  document.getElementById('add-habit-btn').style.display=editHabits.length>=MAX_ITEMS?'none':'flex';
+  document.getElementById('add-habit-btn').style.display=editHabits.length>=MAX_ITEMS?'none':'block';
   document.getElementById('habits-save-msg').textContent='';
 }
 

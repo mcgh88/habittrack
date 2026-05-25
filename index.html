@@ -389,7 +389,7 @@ input[type="date"] { -webkit-appearance: none; }
 <!-- HABITS BOTTOM BAR -->
 <div class="bottom-bar" id="habits-bottom-bar">
   <div class="input-bar">
-    <input type="text" id="habits-input" placeholder="New track..." maxlength="50">
+    <input type="text" id="habits-input" placeholder="New track...">
     <button class="add-btn" id="habits-add-btn">+</button>
   </div>
 </div>
@@ -466,7 +466,7 @@ input[type="date"] { -webkit-appearance: none; }
 
 <script>
 const MAX_ITEMS = 15;
-const MAX_NAME_LENGTH = 50;
+const MAX_NAME_LENGTH = 200;
 const STORAGE_KEY = 'habittrack_data';
 
 // Track colors (same as TaskTrack)
@@ -992,7 +992,7 @@ function updateHabitsInput(){
   const inp=document.getElementById('habits-input');
   if(habitsDrillTrack===null){
     inp.placeholder='New track...';
-    inp.maxLength=50;
+    inp.maxLength=MAX_NAME_LENGTH;
   }else{
     inp.placeholder='New habit...';
     inp.maxLength=MAX_NAME_LENGTH;

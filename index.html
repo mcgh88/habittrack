@@ -375,6 +375,7 @@ input[type="date"] { -webkit-appearance: none; }
   <div id="day-content-single" style="display:none;">
     <div class="score-area" id="score-area"></div>
     <div class="habit-list" id="day-habit-list"></div>
+    <div id="day-track-actions" style="margin-top:8px;"></div>
     <div id="day-back-zone" style="min-height:200px;cursor:pointer;"></div>
   </div>
 </div>
@@ -789,6 +790,25 @@ function finalizeDay(dateStr){
   return true;
 }
 
+// Wipe a day completely: remove every track's marks for that date AND any
+// finalized record. A finalized day cleared this way reverts to a blank,
+// editable past day (this is the only path that undoes a finalize).
+function clearDay(dateStr){
+  store.trackOrder.forEach(id=>{
+    const track=getTrack(id);
+    if(track.drafts&&track.drafts[dateStr])delete track.drafts[dateStr];
+  });
+  if(store.finalized&&store.finalized[dateStr])delete store.finalized[dateStr];
+  saveStore(store);
+}
+
+// Clear one track's marks for a single date (leaves other tracks untouched).
+function clearTrackDay(trackId,dateStr){
+  const track=getTrack(trackId);
+  if(track.drafts&&track.drafts[dateStr])delete track.drafts[dateStr];
+  saveStore(store);
+}
+
 // All past days that have marks but are not yet finalized.
 function unfinalizedMarkedPastDays(){
   const today=todayStr();
@@ -901,6 +921,7 @@ function renderDay(){
         <div class="score-label">no habits defined</div>
       </div>`;
     listEl.innerHTML='<div class="no-habits-msg">No habits defined yet.<br>Go to the Habits tab to add some.</div>';
+    document.getElementById('day-track-actions').innerHTML='';
     return;
   }
 
@@ -929,6 +950,20 @@ function renderDay(){
       saveStore(store);renderDay();
     });
   });
+
+  // Clear track: wipe this track's marks for this day only. Shown when there's
+  // something to clear.
+  const actions=document.getElementById('day-track-actions');
+  if(hasAnyMark(marks)){
+    actions.innerHTML=`<button class="btn btn-sm btn-danger btn-block" id="clear-track-btn">Clear track</button>`;
+    document.getElementById('clear-track-btn').addEventListener('click',()=>{
+      const tName=store.trackNames[trackId]||trackId;
+      if(!confirm('Clear all marks for \u201c'+tName+'\u201d on '+formatDate(currentDate)+'?'))return;
+      clearTrackDay(trackId,currentDate);showToast('Track cleared');renderDay();
+    });
+  }else{
+    actions.innerHTML='';
+  }
 }
 
 // ============================================================
@@ -947,7 +982,8 @@ function renderFinalizeBar(){
       <div class="finalize-prompt">
         <div class="finalize-text">Lock this day's scores. Permanent &mdash; can't be edited after.</div>
         <button class="btn btn-green btn-sm" id="finalize-day-btn">Finalize</button>
-      </div>`;
+      </div>
+      <button class="btn btn-sm btn-danger btn-block" id="clear-day-btn" style="margin-top:8px;">Clear day</button>`;
     document.getElementById('finalize-day-btn').addEventListener('click',()=>{
       if(!confirm('Finalize '+formatDate(currentDate)+'? This locks the day permanently and it can\u2019t be edited afterward.'))return;
       if(finalizeDay(currentDate)){showToast('Day finalized');renderDay();}
@@ -957,7 +993,15 @@ function renderFinalizeBar(){
       <div class="finalize-prompt">
         <div class="finalize-text">Mark every habit to finalize this day.</div>
         <button class="btn btn-sm btn-outline" disabled>Finalize</button>
-      </div>`;
+      </div>
+      <button class="btn btn-sm btn-danger btn-block" id="clear-day-btn" style="margin-top:8px;">Clear day</button>`;
+  }
+  const clearBtn=document.getElementById('clear-day-btn');
+  if(clearBtn){
+    clearBtn.addEventListener('click',()=>{
+      if(!confirm('Clear all marks for '+formatDate(currentDate)+'?'))return;
+      clearDay(currentDate);showToast('Day cleared');renderDay();
+    });
   }
 }
 
@@ -982,7 +1026,12 @@ function renderFinalizedView(){
   el.innerHTML=`
     <div class="finalized-banner"><span class="lock">&#128274;</span> Finalized</div>
     <div class="score-area"><div class="score-summary">${totalHtml}</div></div>
-    <div style="margin-top:12px;">${cards}</div>`;
+    <div style="margin-top:12px;">${cards}</div>
+    <button class="btn btn-sm btn-danger btn-block" id="clear-finalized-btn" style="margin-top:16px;">Clear day</button>`;
+  document.getElementById('clear-finalized-btn').addEventListener('click',()=>{
+    if(!confirm('Clear '+formatDate(currentDate)+'? This deletes the finalized scores and all of this day\u2019s marks. This can\u2019t be undone.'))return;
+    clearDay(currentDate);showToast('Day cleared');renderDay();
+  });
 }
 
 // ============================================================
@@ -1029,7 +1078,6 @@ function renderAllDashboard(){
 
     // Check if track is dismissed (all marks are n/a)
     const isDismissed=items.length>0&&marks.length===items.length&&marks.every(m=>m==='na');
-    const isTodayView=currentDate===todayStr();
 
     const card=document.createElement('div');
     const c=gc(store.trackColors[trackId]||'none');
@@ -1045,7 +1093,7 @@ function renderAllDashboard(){
         <div class="track-card-name" style="${isDismissed?'font-style:italic;opacity:0.6;':''}">${escHtml(name)}</div>
         <span class="track-card-status ${statusClass}">${statusText}</span>
       </div>
-      ${isTodayView&&items.length>0?`<button class="dismiss-toggle-btn" data-track-id="${trackId}" title="${isDismissed?'Restore':'Dismiss'}" style="background:none;border:1px solid ${isDismissed?'var(--text-faint)':'rgba(255,255,255,0.25)'};color:${isDismissed?'var(--text-dim)':c.text};border-radius:6px;padding:4px 8px;font-family:var(--mono);font-size:10px;cursor:pointer;flex-shrink:0;margin-right:8px;opacity:0.7;">${isDismissed?'Undo':'n/a'}</button>`:''}
+      ${items.length>0?`<button class="dismiss-toggle-btn" data-track-id="${trackId}" title="${isDismissed?'Restore':'Dismiss'}" style="background:none;border:1px solid ${isDismissed?'var(--text-faint)':'rgba(255,255,255,0.25)'};color:${isDismissed?'var(--text-dim)':c.text};border-radius:6px;padding:4px 8px;font-family:var(--mono);font-size:10px;cursor:pointer;flex-shrink:0;margin-right:8px;opacity:0.7;">${isDismissed?'Undo':'n/a'}</button>`:''}
       <div class="track-card-score" style="${isDismissed?'opacity:0.4;':''}">${score!==null?Math.round(score)+'%':'\u2014'}</div>`;
     card.addEventListener('click',(e)=>{
       if(e.target.closest('.dismiss-toggle-btn'))return;
@@ -1500,8 +1548,22 @@ function renderCalGrid(){
       cell.innerHTML=`<span>${day}</span><span class="cal-score">${Math.round(result.score)}%</span>`;
     }else if(isFuture||dateStr===today){cell.className='cal-cell future';cell.textContent=day;}
     else{cell.className='cal-cell missed';cell.textContent=day;}
+    cell.addEventListener('click',()=>goToDay(dateStr));
     grid.appendChild(cell);
   }
+}
+
+// Open a specific date on the Day tab (used by calendar taps).
+function goToDay(dateStr){
+  currentDate=dateStr;
+  dayDrillTrack=null;
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  const dayBtn=document.querySelector('.tab-btn[data-tab="day"]');
+  if(dayBtn)dayBtn.classList.add('active');
+  document.getElementById('panel-day').classList.add('active');
+  document.getElementById('habits-bottom-bar').classList.remove('show');
+  renderDay();
 }
 
 function renderLegend(id){

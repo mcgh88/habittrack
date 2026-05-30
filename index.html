@@ -475,11 +475,11 @@ input[type="date"] { -webkit-appearance: none; }
 <!-- FINALIZE PROMPT MODAL -->
 <div class="modal-overlay" id="finalize-modal">
   <div class="modal">
-    <h2>Finalize past days?</h2>
+    <h2>Unfinalized past days</h2>
     <p id="finalize-modal-msg"></p>
     <div class="modal-buttons">
       <button class="btn btn-outline btn-block" id="finalize-modal-skip">Continue without finalizing</button>
-      <button class="btn btn-green btn-block" id="finalize-modal-confirm">Finalize all</button>
+      <button class="btn btn-green btn-block" id="finalize-modal-confirm">Go to first unfinalized day</button>
     </div>
   </div>
 </div>
@@ -635,19 +635,11 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
 function maybeShowFinalizePrompt(){
   const days=unfinalizedMarkedPastDays();
   if(days.length===0)return;
-  const finalizable=days.filter(dayFullyMarked);
-  const incomplete=days.length-finalizable.length;
   const n=days.length;
-  let msg=`You have ${n} past day${n!==1?'s':''} with marks that ${n!==1?'are':'is'} not finalized. `
-    +`Adding or removing habits now will change what ${n!==1?'those days':'that day'} shows. `
-    +`Finalize to lock ${n!==1?'them':'it'} first.`;
-  if(incomplete>0){
-    msg+=` Note: ${incomplete} day${incomplete!==1?"s aren't":" isn't"} fully marked and can't be finalized.`;
-  }
+  const msg=`You have ${n} past day${n!==1?'s':''} with marks that ${n!==1?'are':'is'} not finalized. `
+    +`You can update habits, but any changes will propagate to ${n!==1?'those unfinalized days':'that unfinalized day'}. `
+    +`Finalize a day from its Today view to lock it.`;
   document.getElementById('finalize-modal-msg').textContent=msg;
-  const confirmBtn=document.getElementById('finalize-modal-confirm');
-  confirmBtn.disabled=finalizable.length===0;
-  confirmBtn.textContent=finalizable.length>0?`Finalize all (${finalizable.length})`:'Nothing to finalize';
   document.getElementById('finalize-modal').classList.add('show');
 }
 
@@ -655,11 +647,21 @@ document.getElementById('finalize-modal-skip').addEventListener('click',()=>{
   document.getElementById('finalize-modal').classList.remove('show');
 });
 document.getElementById('finalize-modal-confirm').addEventListener('click',()=>{
-  const days=unfinalizedMarkedPastDays().filter(dayFullyMarked);
-  let count=0;
-  days.forEach(d=>{if(finalizeDay(d))count++;});
   document.getElementById('finalize-modal').classList.remove('show');
-  if(count>0)showToast(count+' day'+(count!==1?'s':'')+' finalized');
+  const days=unfinalizedMarkedPastDays();
+  if(days.length===0)return;
+  // Earliest unfinalized marked past day.
+  const first=days.sort()[0];
+  currentDate=first;
+  dayDrillTrack=null;
+  // Switch to the Day tab.
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  const dayBtn=document.querySelector('.tab-btn[data-tab="day"]');
+  if(dayBtn)dayBtn.classList.add('active');
+  document.getElementById('panel-day').classList.add('active');
+  document.getElementById('habits-bottom-bar').classList.remove('show');
+  renderDay();
 });
 
 document.addEventListener('click',(e)=>{
@@ -947,6 +949,7 @@ function renderFinalizeBar(){
         <button class="btn btn-green btn-sm" id="finalize-day-btn">Finalize</button>
       </div>`;
     document.getElementById('finalize-day-btn').addEventListener('click',()=>{
+      if(!confirm('Finalize '+formatDate(currentDate)+'? This locks the day permanently and it can\u2019t be edited afterward.'))return;
       if(finalizeDay(currentDate)){showToast('Day finalized');renderDay();}
     });
   }else{

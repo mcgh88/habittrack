@@ -129,6 +129,8 @@ html, body {
 .track-summary-card.tc-light .track-card-status { background: rgba(255,255,255,0.15); }
 /* Dark-on-light text cards */
 .track-summary-card.tc-dark .track-card-status { background: rgba(0,0,0,0.1); }
+/* Partial — vibrant so it stands out as the thing to finish */
+.track-summary-card .track-card-status.partial { background: var(--yellow); color: var(--bg); opacity: 1; font-weight: 700; }
 
 /* ---- FINALIZE ---- */
 .finalize-prompt {
@@ -1024,7 +1026,7 @@ function renderFinalizeBar(){
   }else{
     bar.innerHTML=`
       <div class="finalize-prompt">
-        <div class="finalize-text">Mark every habit to finalize this day.</div>
+        <div class="finalize-text">Complete <span style="color:var(--yellow);font-weight:700;">partial</span> tracks to finalize.</div>
         <button class="btn btn-sm btn-outline" disabled>Finalize</button>
       </div>
       <button class="btn btn-green btn-sm" id="clear-day-btn" style="margin-top:8px;">Clear day</button>`;
@@ -1096,7 +1098,7 @@ function renderAllDashboard(){
         // All marks are n/a
         statusClass='tentative';statusText='All n/a';
       }else if(all){statusClass='tentative';statusText='Complete';}
-      else{statusClass='tentative';statusText='Partial';allTracksComplete=false;}
+      else{statusClass='partial';statusText='Partial';allTracksComplete=false;}
       items.forEach((h,i)=>{
         if(marks[i]===null)return;
         if(marks[i]==='na')return;

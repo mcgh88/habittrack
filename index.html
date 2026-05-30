@@ -1026,7 +1026,7 @@ function renderFinalizeBar(){
   }else{
     bar.innerHTML=`
       <div class="finalize-prompt">
-        <div class="finalize-text">Complete <span style="color:var(--yellow);font-weight:700;">partial</span> tracks to finalize.</div>
+        <div class="finalize-text">Finish any <span style="color:var(--yellow);font-weight:700;">not complete</span> tracks to finalize.</div>
         <button class="btn btn-sm btn-outline" disabled>Finalize</button>
       </div>
       <button class="btn btn-green btn-sm" id="clear-day-btn" style="margin-top:8px;">Clear day</button>`;
@@ -1089,7 +1089,7 @@ function renderAllDashboard(){
     const any=hasAnyMark(marks);
     const all=isAllMarked(marks)&&items.length>0;
 
-    let score=null;let statusClass='empty';let statusText='No marks';
+    let score=null;let statusClass='partial';let statusText='Not complete';
 
     if(any){
       anyTrackHasMarks=true;
@@ -1098,7 +1098,7 @@ function renderAllDashboard(){
         // All marks are n/a
         statusClass='tentative';statusText='All n/a';
       }else if(all){statusClass='tentative';statusText='Complete';}
-      else{statusClass='partial';statusText='Partial';allTracksComplete=false;}
+      else{statusClass='partial';statusText='Not complete';allTracksComplete=false;}
       items.forEach((h,i)=>{
         if(marks[i]===null)return;
         if(marks[i]==='na')return;

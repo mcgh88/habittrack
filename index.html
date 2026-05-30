@@ -454,9 +454,12 @@ input[type="date"] { -webkit-appearance: none; }
     <div style="font-size:11px;color:var(--text-faint);margin-top:-6px;margin-bottom:10px;font-family:var(--mono);padding:0 2px;">
       Import merges — matching tracks and habits are kept, new ones are added.
     </div>
+    <div class="setting-row"><label>Clear all marks</label><button class="btn btn-sm btn-danger" id="clear-marks-btn">Clear Marks</button></div>
+    <div style="font-size:11px;color:var(--text-faint);margin-top:-6px;margin-bottom:10px;font-family:var(--mono);padding:0 2px;">
+      Clears every mark and finalized score on all days. Keeps your habits, tracks, and settings.
+    </div>
     <div class="setting-row"><label>Clear everything</label><button class="btn btn-sm btn-danger" id="clear-btn">Reset All</button></div>
   </div>
-  <div style="text-align:center;padding:16px 0 4px;font-family:var(--mono);font-size:11px;color:var(--text-faint);" id="build-timestamp">last build: 2026-05-30 15:02 UTC</div>
 </div>
 
 <!-- GLOBAL IMPORT MODAL -->
@@ -809,6 +812,17 @@ function clearTrackDay(trackId,dateStr){
   saveStore(store);
 }
 
+// Wipe every mark on every day across all tracks, plus all finalized records.
+// Habits, tracks, names, colors, notes, and settings are all left intact.
+function clearAllMarks(){
+  store.trackOrder.forEach(id=>{
+    const track=getTrack(id);
+    track.drafts={};
+  });
+  store.finalized={};
+  saveStore(store);
+}
+
 // All past days that have marks but are not yet finalized.
 function unfinalizedMarkedPastDays(){
   const today=todayStr();
@@ -951,19 +965,37 @@ function renderDay(){
     });
   });
 
-  // Clear track: wipe this track's marks for this day only. Shown when there's
-  // something to clear.
+  // Per-track actions (inside the drilled-in track view only):
+  //  - Clear track: wipe this track's marks for this day. Shown when there's
+  //    something to clear. Styled to match the Finalize button.
+  //  - Mark n/a: set every habit in this track to n/a (or undo if already all
+  //    n/a). Lives here now instead of on the main dashboard cards.
   const actions=document.getElementById('day-track-actions');
+  const allNa=marks.length===items.length&&marks.every(m=>m==='na');
+  let actionsHtml='';
   if(hasAnyMark(marks)){
-    actions.innerHTML=`<button class="btn btn-sm btn-danger btn-block" id="clear-track-btn">Clear track</button>`;
-    document.getElementById('clear-track-btn').addEventListener('click',()=>{
+    actionsHtml+=`<button class="btn btn-green btn-sm" id="clear-track-btn">Clear track</button>`;
+  }
+  actionsHtml+=`<button class="btn btn-green btn-sm" id="na-track-btn" style="margin-top:8px;">${allNa?'Undo n/a':'Mark n/a'}</button>`;
+  actions.innerHTML=`<div style="display:flex;flex-direction:column;align-items:flex-start;">${actionsHtml}</div>`;
+
+  const clearTrackBtn=document.getElementById('clear-track-btn');
+  if(clearTrackBtn){
+    clearTrackBtn.addEventListener('click',()=>{
       const tName=store.trackNames[trackId]||trackId;
       if(!confirm('Clear all marks for \u201c'+tName+'\u201d on '+formatDate(currentDate)+'?'))return;
       clearTrackDay(trackId,currentDate);showToast('Track cleared');renderDay();
     });
-  }else{
-    actions.innerHTML='';
   }
+  document.getElementById('na-track-btn').addEventListener('click',()=>{
+    const draft=ensureDraft(trackId,currentDate);
+    if(draft.marks.every(m=>m==='na')){
+      draft.marks=draft.marks.map(()=>null);
+    }else{
+      draft.marks=draft.marks.map(()=>'na');
+    }
+    saveStore(store);renderDay();
+  });
 }
 
 // ============================================================
@@ -971,8 +1003,9 @@ function renderDay(){
 // ============================================================
 function renderFinalizeBar(){
   const bar=document.getElementById('day-finalize-bar');
-  // Show only on a past day that has marks and isn't finalized yet.
-  if(currentDate>=todayStr()||isFinalized(currentDate)||!dayHasAnyMark(currentDate)){
+  // Hide when drilled into a single track (the individual habit track screen
+  // only shows its own Clear track action), or on today / finalized / unmarked.
+  if(dayDrillTrack!==null||currentDate>=todayStr()||isFinalized(currentDate)||!dayHasAnyMark(currentDate)){
     bar.style.display='none';bar.innerHTML='';return;
   }
   bar.style.display='block';
@@ -983,7 +1016,7 @@ function renderFinalizeBar(){
         <div class="finalize-text">Lock this day's scores. Permanent &mdash; can't be edited after.</div>
         <button class="btn btn-green btn-sm" id="finalize-day-btn">Finalize</button>
       </div>
-      <button class="btn btn-sm btn-danger btn-block" id="clear-day-btn" style="margin-top:8px;">Clear day</button>`;
+      <button class="btn btn-green btn-sm" id="clear-day-btn" style="margin-top:8px;">Clear day</button>`;
     document.getElementById('finalize-day-btn').addEventListener('click',()=>{
       if(!confirm('Finalize '+formatDate(currentDate)+'? This locks the day permanently and it can\u2019t be edited afterward.'))return;
       if(finalizeDay(currentDate)){showToast('Day finalized');renderDay();}
@@ -994,7 +1027,7 @@ function renderFinalizeBar(){
         <div class="finalize-text">Mark every habit to finalize this day.</div>
         <button class="btn btn-sm btn-outline" disabled>Finalize</button>
       </div>
-      <button class="btn btn-sm btn-danger btn-block" id="clear-day-btn" style="margin-top:8px;">Clear day</button>`;
+      <button class="btn btn-green btn-sm" id="clear-day-btn" style="margin-top:8px;">Clear day</button>`;
   }
   const clearBtn=document.getElementById('clear-day-btn');
   if(clearBtn){
@@ -1027,7 +1060,7 @@ function renderFinalizedView(){
     <div class="finalized-banner"><span class="lock">&#128274;</span> Finalized</div>
     <div class="score-area"><div class="score-summary">${totalHtml}</div></div>
     <div style="margin-top:12px;">${cards}</div>
-    <button class="btn btn-sm btn-danger btn-block" id="clear-finalized-btn" style="margin-top:16px;">Clear day</button>`;
+    <button class="btn btn-green btn-sm" id="clear-finalized-btn" style="margin-top:16px;">Clear day</button>`;
   document.getElementById('clear-finalized-btn').addEventListener('click',()=>{
     if(!confirm('Clear '+formatDate(currentDate)+'? This deletes the finalized scores and all of this day\u2019s marks. This can\u2019t be undone.'))return;
     clearDay(currentDate);showToast('Day cleared');renderDay();
@@ -1093,32 +1126,11 @@ function renderAllDashboard(){
         <div class="track-card-name" style="${isDismissed?'font-style:italic;opacity:0.6;':''}">${escHtml(name)}</div>
         <span class="track-card-status ${statusClass}">${statusText}</span>
       </div>
-      ${items.length>0?`<button class="dismiss-toggle-btn" data-track-id="${trackId}" title="${isDismissed?'Restore':'Dismiss'}" style="background:none;border:1px solid ${isDismissed?'var(--text-faint)':'rgba(255,255,255,0.25)'};color:${isDismissed?'var(--text-dim)':c.text};border-radius:6px;padding:4px 8px;font-family:var(--mono);font-size:10px;cursor:pointer;flex-shrink:0;margin-right:8px;opacity:0.7;">${isDismissed?'Undo':'n/a'}</button>`:''}
       <div class="track-card-score" style="${isDismissed?'opacity:0.4;':''}">${score!==null?Math.round(score)+'%':'\u2014'}</div>`;
-    card.addEventListener('click',(e)=>{
-      if(e.target.closest('.dismiss-toggle-btn'))return;
+    card.addEventListener('click',()=>{
       dayDrillIn(trackId);
     });
     dashboard.appendChild(card);
-  });
-
-  // Dismiss toggle listeners
-  dashboard.querySelectorAll('.dismiss-toggle-btn').forEach(btn=>{
-    btn.addEventListener('click',(e)=>{
-      e.stopPropagation();
-      const trackId=btn.dataset.trackId;
-      const items=getHabitsForDate(trackId,currentDate);
-      const draft=ensureDraft(trackId,currentDate);
-      const allNa=draft.marks.every(m=>m==='na');
-      if(allNa){
-        // Undo: clear all marks
-        draft.marks=draft.marks.map(()=>null);
-      }else{
-        // Dismiss: set all to n/a
-        draft.marks=draft.marks.map(()=>'na');
-      }
-      saveStore(store);renderDay();
-    });
   });
 
   if(!anyTrackHasMarks||totalApplicable===0){
@@ -1612,6 +1624,15 @@ document.getElementById('save-settings-btn').addEventListener('click',()=>{
   store.settings.thresh1=parseInt(document.getElementById('set-thresh1').value)||80;
   store.settings.thresh2=parseInt(document.getElementById('set-thresh2').value)||50;
   saveStore(store);showToast('Settings saved');
+});
+
+document.getElementById('clear-marks-btn').addEventListener('click',()=>{
+  if(confirm('Clear ALL marks on ALL days? This deletes every recorded mark and finalized score but keeps your habits, tracks, and settings. This cannot be undone.')){
+    clearAllMarks();
+    dayDrillTrack=null;
+    showToast('All marks cleared');
+    renderDay();
+  }
 });
 
 document.getElementById('clear-btn').addEventListener('click',()=>{

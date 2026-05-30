@@ -537,6 +537,13 @@ function migrateStore(data){
     if(!t.habits)t.habits=[];if(!t.days)t.days={};if(!t.drafts)t.drafts={};
     t.habits.forEach(h=>{delete h.weight;delete h.color;});
     Object.values(t.days).forEach(d=>{if(d.items)d.items.forEach(it=>{delete it.weight;});});
+    // Ensure every draft carries a habit snapshot so recorded days freeze correctly.
+    // (Legacy drafts saved with only marks get the current habits backfilled.)
+    Object.values(t.drafts).forEach(draft=>{
+      if(!draft)return;
+      if(!Array.isArray(draft.marks))draft.marks=[];
+      if(!draft.habits)draft.habits=t.habits.map(h=>({name:h.name}));
+    });
   });
   return data;
 }
@@ -624,19 +631,32 @@ document.getElementById('notes-modal').addEventListener('click',(e)=>{if(e.targe
 // ============================================================
 // GET HABITS FOR A DATE (uses draft snapshot or current habits)
 // ============================================================
+// A day is FROZEN to its snapshot only if it is in the past AND has at least
+// one recorded mark. Today, future days, and any unmarked past day always
+// reflect the current (live) habit list, so habit edits show up on them.
+function isDayLocked(track,dateStr){
+  if(dateStr>=todayStr())return false;            // today + future never lock
+  const draft=track.drafts[dateStr];
+  return !!(draft&&draft.marks&&hasAnyMark(draft.marks)&&draft.habits);
+}
+
 function getHabitsForDate(trackId,dateStr){
   const track=getTrack(trackId);
-  const draft=track.drafts[dateStr];
-  if(draft&&draft.habits)return draft.habits;
-  // No draft = show current track habits
-  return track.habits;
+  if(isDayLocked(track,dateStr))return track.drafts[dateStr].habits; // frozen snapshot
+  return track.habits;                                              // live list
 }
 
 function getMarksForDate(trackId,dateStr){
   const track=getTrack(trackId);
+  const items=getHabitsForDate(trackId,dateStr);
   const draft=track.drafts[dateStr];
-  if(draft&&draft.marks)return draft.marks;
-  return new Array(track.habits.length).fill(null);
+  if(draft&&draft.marks){
+    // Align stored marks to whatever habit list is being shown.
+    const m=draft.marks.slice(0,items.length);
+    while(m.length<items.length)m.push(null);
+    return m;
+  }
+  return new Array(items.length).fill(null);
 }
 
 function ensureDraft(trackId,dateStr){
